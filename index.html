@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Rapor Digital RA ADIRASA - Multi Siswa (Lengkap)</title>
+
+<!-- jsPDF untuk export PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- FileSaver untuk export Word -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<style>
+  :root{
+    --primary:#2c5aa0; --accent:#4caf50; --border:#ddd;
+  }
+  *{box-sizing:border-box}
+  body{font-family:Segoe UI, Tahoma, Arial; background:#f7f8fb; margin:0; padding:20px; color:#222}
+  .container{max-width:1200px; margin:0 auto; background:#fff; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.06); overflow:hidden}
+  header{background:var(--primary); color:#fff; padding:18px; text-align:center}
+  .flex{display:flex; gap:16px}
+  .panel{padding:18px}
+  .left{width:320px; border-right:1px solid #eee}
+  .right{flex:1}
+  button{padding:8px 12px; border:0; border-radius:6px; cursor:pointer; background:var(--primary); color:#fff}
+  .btn-danger{background:#e74c3c}
+  .btn-success{background:var(--accent); color:#fff}
+  .btn-warning{background:#f39c12; color:#fff}
+  .small{padding:6px 8px; font-size:13px}
+  .student-list{max-height:360px; overflow:auto; border:1px solid var(--border); border-radius:6px; padding:8px; background:#fafafa}
+  .student-item{padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center}
+  .student-item:last-child{border-bottom:none}
+  .student-item.active{background:var(--primary); color:#fff}
+  label{display:block; font-weight:600; margin-top:8px}
+  input, select, textarea{width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; margin-top:6px}
+  textarea{min-height:80px; resize:vertical}
+  .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
+  #raporPreview{padding:18px; border-top:1px solid #eee; background:#fff}
+  .rapor-header{display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #222; padding-bottom:8px; gap:12px}
+  .rapor-header img.logo{width:80px; height:80px; object-fit:cover}
+  .rapor-photo{width:90px; height:110px; object-fit:cover; border:2px solid #222}
+  table{width:100%; border-collapse:collapse; margin-top:12px}
+  table, th, td{border:1px solid var(--border)}
+  th, td{padding:8px; text-align:left}
+  .sig-row{display:flex; justify-content:space-between; margin-top:40px}
+  .sig-box{text-align:center; width:30%}
+  .sig-line{margin-top:60px; border-top:1px solid #222; padding-top:6px}
+  .alert{padding:8px; border-radius:6px; margin-top:8px}
+  .alert-success{background:#e6f4ea; color:#155724}
+  .top-controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .file-hidden{display:none}
+  .attendance-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px}
+  .attendance-item{text-align:center; padding:8px; border:1px solid var(--border); border-radius:6px; background:#f9f9f9}
+  .attendance-value{font-size:18px; font-weight:bold; color:var(--primary)}
+  
+  /* Styles untuk kotak evaluasi vertikal */
+  .eval-box {
+    border: 2px solid;
+    border-radius: 8px;
+    margin: 10px 0;
+    overflow: hidden;
+  }
+  .eval-header {
+    padding: 12px;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    font-size: 16px;
+  }
+  .eval-content {
+    padding: 15px;
+    background: white;
+    min-height: 80px;
+  }
+  
+  /* Styles untuk print langsung */
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    #raporPreview, #raporPreview * {
+      visibility: visible;
+    }
+    #raporPreview {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      background: white;
+      padding: 20px;
+    }
+    .no-print {
+      display: none !important;
+    }
+  }
+  
+  @media(max-width:900px){.flex{flex-direction:column} .left{width:100%; border-right:none}}
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="ADIRASA.png" width="50%" hight="50%"><h1>RA ADIRASA — SISTEM RAPOR DIGITAL </h1>
+      <div style="font-size:13px; opacity:.9">Lengkap: data siswa, data wali, evaluasi, foto & tanda tangan + Keaktifan Siswa</div>
+    </header>
+
+    <div class="flex">
+      <!-- kiri: manajemen siswa -->
+      <div class="left panel">
+        <div class="top-controls">
+          <button id="addStudentBtn" class="small">+ Tambah Siswa</button>
+          <button id="saveAllBtn" class="small">Simpan Semua</button>
+          <button id="exportAllBtn" class="small">Ekspor JSON</button>
+          <button id="importAllBtn" class="small">Impor JSON</button>
+          <button id="clearAllBtn" class="small btn-danger">Hapus Semua</button>
+        </div>
+
+        <h3 style="margin-top:12px">Daftar Siswa</h3>
+        <div id="studentList" class="student-list"></div>
+        <div id="studentCount" class="alert" style="margin-top:8px">Belum ada data siswa</div>
+
+        <div style="margin-top:12px">
+          <input type="file" id="importJsonFile" class="file-hidden" accept=".json">
+        </div>
+      </div>
+
+      <!-- kanan: form & preview -->
+      <div class="right panel">
+        <h2>Form Data Rapor - <span id="currentStudentName">Pilih Siswa</span></h2>
+        <div id="alertMessage"></div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px">
+          <!-- Identitas -->
+          <div>
+            <label for="namaSiswa">Nama Lengkap *</label>
+            <input id="namaSiswa" type="text">
+
+            <label for="nisLokal">NIS Lokal *</label>
+            <input id="nisLokal" type="text">
+
+            <label for="tempatLahir">Tempat Lahir *</label>
+            <input id="tempatLahir" type="text">
+
+            <label for="tanggalLahir">Tanggal Lahir *</label>
+            <input id="tanggalLahir" type="date">
+
+            <label for="jenisKelamin">Jenis Kelamin *</label>
+            <select id="jenisKelamin"><option value="">Pilih</option><option value="Laki-Laki">Laki-Laki</option><option value="Perempuan">Perempuan</option></select>
+
+            <label for="kelompokUsia">Kelompok/Usia *</label>
+            <input id="kelompokUsia" type="text">
+
+            <label for="tahunAjaran">Tahun Ajaran *</label>
+            <input id="tahunAjaran" type="text" placeholder="Contoh: 2024/2025">
+
+            <label for="semester">Semester *</label>
+            <select id="semester"><option value="">Pilih</option><option value="I (Satu)">I (Satu)</option><option value="II (Dua)">II (Dua)</option></select>
+
+            <label for="fotoSiswa">Foto Siswa (opsional)</label>
+            <input id="fotoSiswa" type="file" accept="image/*">
+            <div style="font-size:12px; color:#666; margin-top:6px">Foto akan disimpan ke localStorage (base64)</div>
+          </div>
+
+          <!-- Orang tua & evaluasi -->
+          <div>
+            <h4>Data Orang Tua / Wali</h4>
+            <label for="namaAyah">Nama Ayah</label>
+            <input id="namaAyah" type="text">
+            <label for="pendidikanAyah">Pendidikan Ayah</label>
+            <input id="pendidikanAyah" type="text">
+            <label for="pekerjaanAyah">Pekerjaan Ayah</label>
+            <input id="pekerjaanAyah" type="text">
+
+            <label for="namaIbu">Nama Ibu</label>
+            <input id="namaIbu" type="text">
+            <label for="pendidikanIbu">Pendidikan Ibu</label>
+            <input id="pendidikanIbu" type="text">
+            <label for="pekerjaanIbu">Pekerjaan Ibu</label>
+            <input id="pekerjaanIbu" type="text">
+
+            <!-- KEAKTIFAN SISWA - TAMBAHAN BARU -->
+            <h4 style="margin-top:12px">Keaktifan Siswa</h4>
+            <div class="attendance-grid">
+              <div class="attendance-item">
+                <div>Ijin</div>
+                <input id="jumlahIjin" type="number" min="0" value="0" style="text-align:center; font-size:16px; font-weight:bold">
+              </div>
+              <div class="attendance-item">
+                <div>Sakit</div>
+                <input id="jumlahSakit" type="number" min="0" value="0" style="text-align:center; font-size:16px; font-weight:bold">
+              </div>
+              <div class="attendance-item">
+                <div>Alpha</div>
+                <input id="jumlahAlpha" type="number" min="0" value="0" style="text-align:center; font-size:16px; font-weight:bold">
+              </div>
+            </div>
+
+            <h4 style="margin-top:12px">Evaluasi Perkembangan</h4>
+            
+            <label for="agamaBudipekerti" style="color:#2c5aa0; font-weight:bold">🕌 Agama & Budi Pekerti</label>
+            <textarea id="agamaBudipekerti" placeholder="Deskripsi perkembangan agama dan budi pekerti siswa..."></textarea>
+
+            <label for="jatiDiri" style="color:#e74c3c; font-weight:bold">🌟 Jati Diri</label>
+            <textarea id="jatiDiri" placeholder="Deskripsi perkembangan jati diri dan karakter siswa..."></textarea>
+
+            <label for="literasi" style="color:#27ae60; font-weight:bold">📚 Literasi / Matematika / Sains / Seni</label>
+            <textarea id="literasi" placeholder="Deskripsi perkembangan literasi, matematika, sains, dan seni..."></textarea>
+
+            <label for="profilPancasila" style="color:#9b59b6; font-weight:bold">🇮🇩 Profil Pancasila & Projek</label>
+            <textarea id="profilPancasila" placeholder="Deskripsi perkembangan profil Pancasila dan projek..."></textarea>
+
+            <label for="keagamaanBTQ" style="color:#f39c12; font-weight:bold">📖 Muatan Keagamaan & BTQ</label>
+            <textarea id="keagamaanBTQ" placeholder="Deskripsi perkembangan muatan keagamaan dan BTQ..."></textarea>
+
+            <label for="informasiPerkembangan" style="color:#e67e22; font-weight:bold">💡 Informasi Mengenai Perkembangan Anak</label>
+            <textarea id="informasiPerkembangan" placeholder="Informasi tambahan mengenai perkembangan anak..."></textarea>
+          </div>
+        </div>
+
+        <h4 style="margin-top:12px">Refleksi Orang Tua / Wali</h4>
+        <label for="refleksi1">Apa yang sudah berkembang?</label>
+        <textarea id="refleksi1"></textarea>
+        <label for="refleksi2">Apa yang perlu dikembangkan?</label>
+        <textarea id="refleksi2"></textarea>
+        <label for="refleksi3">Langkah-langkah untuk membantu anak</label>
+        <textarea id="refleksi3"></textarea>
+
+        <h4 style="margin-top:12px">Tanda Tangan (TTD)</h4>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px">
+          <div>
+            <label for="penandaOrtu">Nama Orang Tua/Wali (untuk TTD)</label>
+            <input id="penandaOrtu" type="text" placeholder="Nama wali">
+          </div>
+          <div>
+            <label for="penandaGuru">Nama Guru Kelas (untuk TTD)</label>
+            <input id="penandaGuru" type="text" placeholder="Nama guru">
+          </div>
+          <div>
+            <label for="penandaKepala">Nama Kepala Madrasah (untuk TTD)</label>
+            <input id="penandaKepala" type="text" placeholder="Nama kepala madrasah">
+          </div>
+          <div>
+            <label for="tanggalRapor">Tanggal Rapor</label>
+            <input id="tanggalRapor" type="date" value="">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="generateBtn" class="small">Generate Rapor</button>
+          <button id="saveBtn" class="small btn-success">Simpan Siswa Ini</button>
+          <button id="printPdfBtn" class="small">Cetak PDF</button>
+          <button id="printWordBtn" class="small">Cetak Word</button>
+          <button id="printDirectBtn" class="small btn-warning">Cetak Langsung</button>
+          <button id="duplicateBtn" class="small">Duplikat</button>
+          <button id="deleteBtn" class="small btn-danger">Hapus</button>
+        </div>
+
+        <div id="raporPreview"></div>
+
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ===== STATE ===== */
+let students = JSON.parse(localStorage.getItem('raporStudents')) || {};
+let currentStudentId = null;
+let tempPhotoData = ""; // untuk menyimpan base64 sebelum save
+
+/* ===== ELEMENTS ===== */
+const E = id => document.getElementById(id);
+const elementMap = {
+  addStudentBtn: E('addStudentBtn'),
+  saveAllBtn: E('saveAllBtn'),
+  exportAllBtn: E('exportAllBtn'),
+  importAllBtn: E('importAllBtn'),
+  clearAllBtn: E('clearAllBtn'),
+  importJsonFile: E('importJsonFile'),
+
+  studentList: E('studentList'),
+  studentCount: E('studentCount'),
+  currentStudentName: E('currentStudentName'),
+  alertMessage: E('alertMessage'),
+  raporPreview: E('raporPreview'),
+
+  // form fields
+  namaSiswa: E('namaSiswa'),
+  nisLokal: E('nisLokal'),
+  tempatLahir: E('tempatLahir'),
+  tanggalLahir: E('tanggalLahir'),
+  jenisKelamin: E('jenisKelamin'),
+  kelompokUsia: E('kelompokUsia'),
+  tahunAjaran: E('tahunAjaran'),
+  semester: E('semester'),
+
+  // keaktifan siswa - TAMBAHAN BARU
+  jumlahIjin: E('jumlahIjin'),
+  jumlahSakit: E('jumlahSakit'),
+  jumlahAlpha: E('jumlahAlpha'),
+
+  namaAyah: E('namaAyah'),
+  pendidikanAyah: E('pendidikanAyah'),
+  pekerjaanAyah: E('pekerjaanAyah'),
+  namaIbu: E('namaIbu'),
+  pendidikanIbu: E('pendidikanIbu'),
+  pekerjaanIbu: E('pekerjaanIbu'),
+
+  agamaBudipekerti: E('agamaBudipekerti'),
+  jatiDiri: E('jatiDiri'),
+  literasi: E('literasi'),
+  profilPancasila: E('profilPancasila'),
+  keagamaanBTQ: E('keagamaanBTQ'),
+  informasiPerkembangan: E('informasiPerkembangan'),
+
+  refleksi1: E('refleksi1'),
+  refleksi2: E('refleksi2'),
+  refleksi3: E('refleksi3'),
+
+  fotoSiswa: E('fotoSiswa'),
+
+  penandaOrtu: E('penandaOrtu'),
+  penandaGuru: E('penandaGuru'),
+  penandaKepala: E('penandaKepala'),
+  tanggalRapor: E('tanggalRapor'),
+
+  // actions
+  generateBtn: E('generateBtn'),
+  saveBtn: E('saveBtn'),
+  printPdfBtn: E('printPdfBtn'),
+  printWordBtn: E('printWordBtn'),
+  printDirectBtn: E('printDirectBtn'),
+  duplicateBtn: E('duplicateBtn'),
+  deleteBtn: E('deleteBtn')
+};
+
+/* ===== UTIL ===== */
+function showAlert(message, type='success') {
+  elementMap.alertMessage.innerHTML = `<div class="alert ${type==='success'?'alert-success':''}">${message}</div>`;
+  setTimeout(()=> elementMap.alertMessage.innerHTML = '', 4500);
+}
+function generateId(){ return 'student_' + Date.now() + '_' + Math.random().toString(36).slice(2,9); }
+
+function formatDate(idate){
+  if(!idate) return '';
+  const d = new Date(idate);
+  const opt = { day:'numeric', month:'long', year:'numeric' };
+  return d.toLocaleDateString('id-ID', opt);
+}
+
+/* ===== STUDENT LIST UI ===== */
+function updateStudentList(){
+  const list = elementMap.studentList;
+  list.innerHTML = '';
+  const keys = Object.keys(students);
+  if(keys.length === 0){
+    elementMap.studentCount.textContent = 'Belum ada data siswa';
+    elementMap.currentStudentName.textContent = 'Pilih Siswa';
+    return;
+  }
+  elementMap.studentCount.textContent = `Total ${keys.length} siswa`;
+  // sort by namaSiswa
+  const arr = Object.values(students).sort((a,b)=> (a.namaSiswa||'').localeCompare(b.namaSiswa||''));
+  arr.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'student-item' + (s.id===currentStudentId ? ' active' : '');
+    
+    // Tampilkan info keaktifan di list siswa
+    const attendanceInfo = s.jumlahIjin || s.jumlahSakit || s.jumlahAlpha ? 
+      `<div style="font-size:11px; color:#666">I:${s.jumlahIjin||0} S:${s.jumlahSakit||0} A:${s.jumlahAlpha||0}</div>` : '';
+    
+    div.innerHTML = `
+      <div style="flex:1;cursor:pointer">
+        ${s.namaSiswa || '—'} 
+        <div style="font-size:12px; color:#666">${s.nisLokal || ''}</div>
+        ${attendanceInfo}
+      </div>`;
+    
+    // click load
+    div.addEventListener('click', ()=> loadStudentData(s.id));
+    // actions (edit already by click) + delete
+    const actions = document.createElement('div');
+    actions.style.display = 'flex'; actions.style.gap='6px';
+    const btnDel = document.createElement('button'); btnDel.className='small btn-danger'; btnDel.textContent='Hapus';
+    btnDel.onclick = (ev) => { ev.stopPropagation(); deleteStudent(s.id); };
+    const btnDup = document.createElement('button'); btnDup.className='small'; btnDup.textContent='Duplikat';
+    btnDup.onclick = (ev) => { ev.stopPropagation(); duplicateStudent(s.id); };
+    actions.appendChild(btnDup); actions.appendChild(btnDel);
+    div.appendChild(actions);
+    list.appendChild(div);
+  });
+}
+
+/* ===== CRUD ===== */
+function addNewStudent(){
+  const id = generateId();
+  students[id] = {
+    id,
+    namaSiswa: 'Siswa Baru',
+    nisLokal: '',
+    tempatLahir: '',
+    tanggalLahir: '',
+    jenisKelamin: '',
+    kelompokUsia: '',
+    tahunAjaran: '',
+    semester: '',
+    
+    // TAMBAHAN: Data keaktifan siswa
+    jumlahIjin: 0,
+    jumlahSakit: 0,
+    jumlahAlpha: 0,
+    
+    namaAyah: '',
+    pendidikanAyah: '',
+    pekerjaanAyah: '',
+    namaIbu: '',
+    pendidikanIbu: '',
+    pekerjaanIbu: '',
+    agamaBudipekerti: '',
+    jatiDiri: '',
+    literasi: '',
+    profilPancasila: '',
+    keagamaanBTQ: '',
+    informasiPerkembangan: '',
+    refleksi1: '',
+    refleksi2: '',
+    refleksi3: '',
+    foto: '',
+    createdAt: new Date().toISOString()
+  };
+  currentStudentId = id;
+  updateStudentList();
+  loadStudentData(id);
+  showAlert('Siswa baru berhasil ditambahkan!', 'success');
+}
+
+function loadStudentData(id){
+  const s = students[id];
+  if(!s) return;
+  currentStudentId = id;
+  // set fields
+  elementMap.namaSiswa.value = s.namaSiswa || '';
+  elementMap.nisLokal.value = s.nisLokal || '';
+  elementMap.tempatLahir.value = s.tempatLahir || '';
+  elementMap.tanggalLahir.value = s.tanggalLahir || '';
+  elementMap.jenisKelamin.value = s.jenisKelamin || '';
+  elementMap.kelompokUsia.value = s.kelompokUsia || '';
+  elementMap.tahunAjaran.value = s.tahunAjaran || '';
+  elementMap.semester.value = s.semester || '';
+
+  // TAMBAHAN: Set data keaktifan siswa
+  elementMap.jumlahIjin.value = s.jumlahIjin || 0;
+  elementMap.jumlahSakit.value = s.jumlahSakit || 0;
+  elementMap.jumlahAlpha.value = s.jumlahAlpha || 0;
+
+  elementMap.namaAyah.value = s.namaAyah || '';
+  elementMap.pendidikanAyah.value = s.pendidikanAyah || '';
+  elementMap.pekerjaanAyah.value = s.pekerjaanAyah || '';
+  elementMap.namaIbu.value = s.namaIbu || '';
+  elementMap.pendidikanIbu.value = s.pendidikanIbu || '';
+  elementMap.pekerjaanIbu.value = s.pekerjaanIbu || '';
+
+  elementMap.agamaBudipekerti.value = s.agamaBudipekerti || '';
+  elementMap.jatiDiri.value = s.jatiDiri || '';
+  elementMap.literasi.value = s.literasi || '';
+  elementMap.profilPancasila.value = s.profilPancasila || '';
+  elementMap.keagamaanBTQ.value = s.keagamaanBTQ || '';
+  elementMap.informasiPerkembangan.value = s.informasiPerkembangan || '';
+
+  elementMap.refleksi1.value = s.refleksi1 || '';
+  elementMap.refleksi2.value = s.refleksi2 || '';
+  elementMap.refleksi3.value = s.refleksi3 || '';
+
+  elementMap.penandaOrtu.value = s.penandaOrtu || '';
+  elementMap.penandaGuru.value = s.penandaGuru || '';
+  elementMap.penandaKepala.value = s.penandaKepala || '';
+  elementMap.tanggalRapor.value = s.tanggalRapor || '';
+
+  tempPhotoData = s.foto || '';
+  elementMap.currentStudentName.textContent = s.namaSiswa || 'Pilih Siswa';
+  updateStudentList();
+  // auto-generate preview
+  generateRapor(false); // false = jangan simpan lagi karena kita hanya load
+}
+
+function getFormData(){
+  return {
+    namaSiswa: elementMap.namaSiswa.value.trim(),
+    nisLokal: elementMap.nisLokal.value.trim(),
+    tempatLahir: elementMap.tempatLahir.value.trim(),
+    tanggalLahir: elementMap.tanggalLahir.value,
+    jenisKelamin: elementMap.jenisKelamin.value,
+    kelompokUsia: elementMap.kelompokUsia.value.trim(),
+    tahunAjaran: elementMap.tahunAjaran.value.trim(),
+    semester: elementMap.semester.value,
+
+    // TAMBAHAN: Data keaktifan siswa
+    jumlahIjin: parseInt(elementMap.jumlahIjin.value) || 0,
+    jumlahSakit: parseInt(elementMap.jumlahSakit.value) || 0,
+    jumlahAlpha: parseInt(elementMap.jumlahAlpha.value) || 0,
+
+    namaAyah: elementMap.namaAyah.value.trim(),
+    pendidikanAyah: elementMap.pendidikanAyah.value.trim(),
+    pekerjaanAyah: elementMap.pekerjaanAyah.value.trim(),
+    namaIbu: elementMap.namaIbu.value.trim(),
+    pendidikanIbu: elementMap.pendidikanIbu.value.trim(),
+    pekerjaanIbu: elementMap.pekerjaanIbu.value.trim(),
+
+    agamaBudipekerti: elementMap.agamaBudipekerti.value.trim(),
+    jatiDiri: elementMap.jatiDiri.value.trim(),
+    literasi: elementMap.literasi.value.trim(),
+    profilPancasila: elementMap.profilPancasila.value.trim(),
+    keagamaanBTQ: elementMap.keagamaanBTQ.value.trim(),
+    informasiPerkembangan: elementMap.informasiPerkembangan.value.trim(),
+
+    refleksi1: elementMap.refleksi1.value.trim(),
+    refleksi2: elementMap.refleksi2.value.trim(),
+    refleksi3: elementMap.refleksi3.value.trim(),
+
+    penandaOrtu: elementMap.penandaOrtu.value.trim(),
+    penandaGuru: elementMap.penandaGuru.value.trim(),
+    penandaKepala: elementMap.penandaKepala.value.trim(),
+    tanggalRapor: elementMap.tanggalRapor.value
+  };
+}
+
+function saveCurrentStudent(showMsg=true){
+  if(!currentStudentId){
+    showAlert('Pilih siswa terlebih dahulu!', 'error'); return false;
+  }
+  const formData = getFormData();
+  students[currentStudentId] = {
+    ...students[currentStudentId],
+    ...formData,
+    foto: tempPhotoData || students[currentStudentId].foto || ''
+  };
+  localStorage.setItem('raporStudents', JSON.stringify(students));
+  updateStudentList();
+  if(showMsg) showAlert('Data siswa berhasil disimpan!', 'success');
+  return true;
+}
+
+function deleteStudent(id){
+  if(!confirm('Yakin ingin menghapus data ini?')) return;
+  delete students[id];
+  if(currentStudentId === id) currentStudentId = null;
+  localStorage.setItem('raporStudents', JSON.stringify(students));
+  updateStudentList();
+  clearForm();
+  showAlert('Data siswa dihapus!', 'success');
+}
+
+function duplicateStudent(id){
+  const original = students[id];
+  if(!original) return;
+  const newId = generateId();
+  const copy = JSON.parse(JSON.stringify(original));
+  copy.id = newId;
+  copy.namaSiswa = (copy.namaSiswa || '') + ' (Salinan)';
+  copy.nisLokal = (copy.nisLokal || '') + '_copy';
+  copy.createdAt = new Date().toISOString();
+  students[newId] = copy;
+  localStorage.setItem('raporStudents', JSON.stringify(students));
+  currentStudentId = newId;
+  updateStudentList();
+  loadStudentData(newId);
+  showAlert('Data siswa diduplikasi!', 'success');
+}
+
+function clearForm(){
+  const ids = ['namaSiswa','nisLokal','tempatLahir','tanggalLahir','jenisKelamin','kelompokUsia','tahunAjaran','semester',
+    'jumlahIjin','jumlahSakit','jumlahAlpha', // TAMBAHAN: clear keaktifan
+    'namaAyah','pendidikanAyah','pekerjaanAyah','namaIbu','pendidikanIbu','pekerjaanIbu',
+    'agamaBudipekerti','jatiDiri','literasi','profilPancasila','keagamaanBTQ','informasiPerkembangan',
+    'refleksi1','refleksi2','refleksi3','penandaOrtu','penandaGuru','penandaKepala','tanggalRapor'];
+  ids.forEach(id=>{ 
+    if(E(id)) {
+      if(id.includes('jumlah')) {
+        E(id).value = 0; // set ke 0 untuk keaktifan
+      } else {
+        E(id).value = ''; 
+      }
+    }
+  });
+  tempPhotoData = '';
+  elementMap.currentStudentName.textContent = 'Pilih Siswa';
+  elementMap.raporPreview.innerHTML = '';
+}
+
+/* ===== IMPORT / EXPORT ===== */
+function exportAllStudents(){
+  if(Object.keys(students).length === 0){ showAlert('Tidak ada data untuk diekspor','error'); return; }
+  const dataStr = JSON.stringify(students, null, 2);
+  const blob = new Blob([dataStr], {type:'application/json'});
+  const fname = `rapor_semua_siswa_${new Date().toISOString().split('T')[0]}.json`;
+  saveAs(blob, fname);
+  showAlert('Semua data diekspor ke file JSON','success');
+}
+
+E('importJsonFile').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const imported = JSON.parse(ev.target.result);
+      // replace students
+      students = imported;
+      localStorage.setItem('raporStudents', JSON.stringify(students));
+      currentStudentId = null;
+      updateStudentList();
+      clearForm();
+      showAlert('Data berhasil diimpor!', 'success');
+    }catch(err){
+      showAlert('Gagal memuat file JSON. Pastikan format benar','error');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+function loadAllStudents(){
+  const saved = localStorage.getItem('raporStudents');
+  if(saved){
+    try{ students = JSON.parse(saved); }catch(e){ students = {}; }
+  }
+  updateStudentList();
+}
+
+/* ===== FOTO UPLOAD ===== */
+elementMap.fotoSiswa.addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    tempPhotoData = ev.target.result;
+    showAlert('Foto siswa berhasil diunggah!', 'success');
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ===== GENERATE RAPOR (preview) ===== */
+function generateRapor(autoSave=true){
+  // autoSave true when user clicked button -> we save before generate
+  if(!currentStudentId){
+    showAlert('Pilih siswa terlebih dahulu!', 'error'); return;
+  }
+  if(autoSave){
+    const ok = saveCurrentStudent(true);
+    if(!ok) return;
+  }
+  const s = students[currentStudentId];
+  if(!s.namaSiswa || !s.nisLokal || !s.tempatLahir || !s.tanggalLahir){
+    showAlert('Mohon lengkapi data identitas (nama, NIS, tempat/tanggal lahir).', 'error'); 
+    // still generate but warn user; comment line above to require full fields
+  }
+
+  const logo = 'logo.jpg'; // let user place logo.png di folder yang sama
+  const photo = s.foto && s.foto.length>10 ? s.foto : 'foto.png'; // foto default foto.png
+
+  const tanggalCetak = s.tanggalRapor ? formatDate(s.tanggalRapor) : formatDate(new Date());
+
+  // TAMBAHAN: Hitung total hari masuk
+  const totalHariMasuk = (s.jumlahIjin || 0) + (s.jumlahSakit || 0);
+  const totalTidakMasuk = (s.jumlahAlpha || 0);
+
+  // build HTML dengan KOTAK VERTIKAL untuk evaluasi perkembangan
+  const html = `
+    <div style="padding:10px; color:#222; font-family:Arial, sans-serif;">
+      <div class="rapor-header">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img class="logo" src="${logo}" alt="logo">
+          <div style="line-height:1;">
+            <div style="font-weight:700; font-size:18px">LAPORAN PERKEMBANGAN ANAK</div>
+            <div style="font-size:14px">RA ADIRASA - Jl. Wisata Pantai Jumiang, Desa Tanjung, Kec. Pademawu, Kab. Pamekasan</div>
+            <div style="font-size:13px">Tahun Ajaran ${s.tahunAjaran || '-' } &nbsp; Semester ${s.semester || '-'}</div>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <img class="rapor-photo" src="${photo}" alt="Foto Siswa">
+        </div>
+      </div>
+
+      <table>
+        <tr><th colspan="2" style="background:silver">IDENTITAS ANAK</th></tr>
+        <tr><td width="35%">Nama Lengkap Anak</td><td>${s.namaSiswa || ''}</td></tr>
+        <tr><td>NIS Lokal</td><td>${s.nisLokal || ''}</td></tr>
+        <tr><td>Tempat dan Tanggal Lahir</td><td>${s.tempatLahir || ''}, ${formatDate(s.tanggalLahir)}</td></tr>
+        <tr><td>Jenis Kelamin</td><td>${s.jenisKelamin || ''}</td></tr>
+        <tr><td>Kelompok / Usia</td><td>${s.kelompokUsia || ''}</td></tr>
+      </table>
+
+      <!-- TAMBAHAN: TABEL KEAKTIFAN SISWA -->
+      <table>
+        <tr><th colspan="4" style="background:silver">KEAKTIFAN SISWA</th></tr>
+        <tr>
+          <td width="25%" style="text-align:center; background:#e8f5e8"><strong>Ijin</strong></td>
+          <td width="25%" style="text-align:center; background:#fff3cd"><strong>Sakit</strong></td>
+          <td width="25%" style="text-align:center; background:#f8d7da"><strong>Alpha</strong></td>
+          <td width="25%" style="text-align:center; background:#e7f3ff"><strong>Total Masuk</strong></td>
+        </tr>
+        <tr>
+          <td style="text-align:center; font-size:18px; font-weight:bold; color:#2c5aa0">${s.jumlahIjin || 0}</td>
+          <td style="text-align:center; font-size:18px; font-weight:bold; color:#2c5aa0">${s.jumlahSakit || 0}</td>
+          <td style="text-align:center; font-size:18px; font-weight:bold; color:#2c5aa0">${s.jumlahAlpha || 0}</td>
+          <td style="text-align:center; font-size:18px; font-weight:bold; color:#2c5aa0">${totalHariMasuk}</td>
+        </tr>
+      </table>
+
+      <table>
+        <tr><th colspan="2" style="background:silver">DATA ORANG TUA / WALI</th></tr>
+        <tr><td>Nama Ayah</td><td>${s.namaAyah || ''}</td></tr>
+        <tr><td>Pendidikan Ayah</td><td>${s.pendidikanAyah || ''}</td></tr>
+        <tr><td>Pekerjaan Ayah</td><td>${s.pekerjaanAyah || ''}</td></tr>
+        <tr><td>Nama Ibu</td><td>${s.namaIbu || ''}</td></tr>
+        <tr><td>Pendidikan Ibu</td><td>${s.pendidikanIbu || ''}</td></tr>
+        <tr><td>Pekerjaan Ibu</td><td>${s.pekerjaanIbu || ''}</td></tr>
+      </table>
+
+      <!-- EVALUASI PERKEMBANGAN DALAM BENTUK KOTAK VERTIKAL -->
+      <h4 style="margin-top:20px; margin-bottom:15px;">EVALUASI PERKEMBANGAN ANAK</h4>
+      
+      <div class="eval-box" style="border-color:#3498db;">
+        <div class="eval-header" style="background:#3498db;">🕌 AGAMA & BUDI PEKERTI</div>
+        <div class="eval-content">${s.agamaBudipekerti || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+      </div>
+      
+      <div class="eval-box" style="border-color:#e74c3c;">
+        <div class="eval-header" style="background:#e74c3c;">🌟 JATI DIRI</div>
+        <div class="eval-content">${s.jatiDiri || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+      </div>
+      
+      <div class="eval-box" style="border-color:#27ae60;">
+        <div class="eval-header" style="background:#27ae60;">📚 LITERASI / MATEMATIKA / SAINS / SENI</div>
+        <div class="eval-content">${s.literasi || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+      </div>
+      
+      <div class="eval-box" style="border-color:#9b59b6;">
+        <div class="eval-header" style="background:#9b59b6;">🇮🇩 PROFIL PANCASILA & PROJEK</div>
+        <div class="eval-content">${s.profilPancasila || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+      </div>
+      
+      <div class="eval-box" style="border-color:#f39c12;">
+        <div class="eval-header" style="background:#f39c12;">📖 MUATAN KEAGAMAAN & BTQ</div>
+        <div class="eval-content">${s.keagamaanBTQ || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+      </div>
+
+      <!-- INFORMASI PERKEMBANGAN ANAK DALAM KOTAK TERPISAH -->
+      <div class="eval-box" style="border-color:#e67e22;">
+        <div class="eval-header" style="background:#e67e22;">💡 INFORMASI MENGENAI PERKEMBANGAN ANAK</div>
+        <div class="eval-content">${s.informasiPerkembangan || '<em style="color:#666;">Belum ada informasi tambahan mengenai perkembangan anak</em>'}</div>
+      </div>
+
+      <h4>Refleksi Orang Tua / Wali</h4>
+      <div style="margin-bottom:8px"><strong>Apa yang sudah berkembang:</strong><br>${s.refleksi1 || '-'}</div>
+      <div style="margin-bottom:8px"><strong>Apa yang perlu dikembangkan:</strong><br>${s.refleksi2 || '-'}</div>
+      <div style="margin-bottom:8px"><strong>Langkah-langkah bantuan:</strong><br>${s.refleksi3 || '-'}</div>
+
+      <div style="margin-top:18px; text-align:right; font-size:13px">Pamekasan, ${tanggalCetak}</div>
+
+      <div class="sig-row">
+        <div class="sig-box">
+          <div>Orang Tua / Wali</div>
+          <div class="sig-line">${s.penandaOrtu || '________________'}</div>
+        </div>
+        <div class="sig-box">
+          <div>Wali Kelas</div>
+          <div class="sig-line">${s.penandaGuru || '________________'}</div>
+        </div>
+        <div class="sig-box">
+          <div>Kepala Madrasah</div>
+          <div class="sig-line">${s.penandaKepala || '________________'}</div>
+        </div>
+      </div>
+      
+      <!-- Tombol Print untuk cetak langsung -->
+      <div style="text-align:center; margin-top:20px; padding:10px; border-top:1px solid #ddd;" class="no-print">
+        <button onclick="window.print()" style="padding:10px 20px; background:#2c5aa0; color:white; border:none; border-radius:5px; cursor:pointer;">
+          🖨️ Cetak Langsung
+        </button>
+        <div style="font-size:12px; color:#666; margin-top:5px;">Gunakan tombol ini untuk print langsung dari browser</div>
+      </div>
+    </div>
+  `;
+
+  elementMap.raporPreview.innerHTML = html;
+  showAlert('Rapor berhasil digenerate!', 'success');
+}
+
+/* ===== EXPORT / PRINT - YANG SUDAH DIPERBAIKI ===== */
+async function printToPdf(){
+  if(!currentStudentId) { 
+    showAlert('Pilih siswa terlebih dahulu!', 'error'); 
+    return; 
+  }
+  
+  showAlert('Sedang membuat PDF...', 'success');
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    
+    // Gunakan html2canvas untuk capture elemen
+    const element = elementMap.raporPreview;
+    
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      width: element.scrollWidth,
+      height: element.scrollHeight
+    });
+    
+    const imgData = canvas.toDataURL('image/jpeg', 1.0);
+    
+    const pdfWidth = doc.internal.pageSize.getWidth();
+    const pdfHeight = doc.internal.pageSize.getHeight();
+    
+    const imgWidth = canvas.width;
+    const imgHeight = canvas.height;
+    
+    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+    const imgX = (pdfWidth - imgWidth * ratio) / 2;
+    const imgY = 0;
+    
+    doc.addImage(imgData, 'JPEG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+    
+    const s = students[currentStudentId];
+    const filename = `rapor_${(s.namaSiswa||'siswa').replace(/\s+/g,'_')}.pdf`;
+    doc.save(filename);
+    
+    showAlert('PDF berhasil dibuat!', 'success');
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    showAlert('Gagal membuat PDF. Coba lagi.', 'error');
+  }
+}
+
+function printToWord(){
+  if(!currentStudentId) { 
+    showAlert('Pilih siswa terlebih dahulu!', 'error'); 
+    return; 
+  }
+  
+  const s = students[currentStudentId];
+  const tanggalCetak = s.tanggalRapor ? formatDate(s.tanggalRapor) : formatDate(new Date());
+  const totalHariMasuk = (s.jumlahIjin || 0) + (s.jumlahSakit || 0);
+
+  // Template Word dengan kotak evaluasi vertikal
+  const wordHtml = `
+<html xmlns:o='urn:schemas-microsoft-com:office:office' 
+      xmlns:w='urn:schemas-microsoft-com:office:word' 
+      xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset="utf-8">
+  <title>Rapor ${s.namaSiswa || ''}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      line-height: 1.4;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+    }
+    table, th, td {
+      border: 1px solid #000;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .center {
+      text-align: center;
+    }
+    .bold {
+      font-weight: bold;
+    }
+    .logo-placeholder {
+      width: 70px;
+      height: 70px;
+      border: 1px dashed #999;
+      background: #f9f9f9;
+      display: inline-block;
+      vertical-align: top;
+    }
+    .photo-placeholder {
+      width: 80px;
+      height: 100px;
+      border: 2px solid #000;
+      background: #f9f9f9;
+      display: inline-block;
+    }
+    .sig-table {
+      width: 100%;
+      border: none;
+      margin-top: 50px;
+    }
+    .sig-table td {
+      border: none;
+      text-align: center;
+      vertical-align: top;
+    }
+    .sig-line {
+      margin-top: 60px;
+      border-top: 1px solid #000;
+      padding-top: 5px;
+    }
+    .instruction {
+      font-size: 11px;
+      color: #666;
+      font-style: italic;
+    }
+    .eval-box {
+      border: 2px solid;
+      border-radius: 8px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+    .eval-header {
+      padding: 12px;
+      color: white;
+      font-weight: bold;
+      text-align: center;
+      font-size: 16px;
+    }
+    .eval-content {
+      padding: 15px;
+      background: white;
+      min-height: 60px;
+    }
+  </style>
+</head>
+<body>
+  <!-- HEADER DENGAN PLACEHOLDER IMAGES -->
+  <table border="0" style="border:none; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px;">
+    <tr>
+      <td style="border:none; vertical-align:top; width:70%;">
+        <table border="0" style="border:none;">
+          <tr>
+            <td style="border:none; vertical-align:top; width:70px;">
+              <div class="logo-placeholder center">
+                <div style="padding-top:25px; font-size:10px;">LOGO</div>
+                <div style="font-size:9px;">RA ADIRASA</div>
+              </div>
+            </td>
+            <td style="border:none; vertical-align:top;">
+              <div class="bold" style="font-size: 18px;">LAPORAN PERKEMBANGAN ANAK</div>
+              <div style="font-size: 14px;">RA ADIRASA - Desa Tanjung, Kec. Pademawu</div>
+              <div style="font-size: 13px;">Tahun Ajaran ${s.tahunAjaran || '-'} &nbsp; Semester ${s.semester || '-'}</div>
+              <div class="instruction">*Tempel logo RA ADIRASA di kotak sebelah kiri</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+      <td style="border:none; vertical-align:top; width:30%; text-align:right;">
+        <div class="photo-placeholder center">
+          <div style="padding-top:35px; font-size:11px;">FOTO</div>
+          <div style="font-size:10px;">3x4</div>
+          <div style="font-size:9px;">SISWA</div>
+        </div>
+        <div class="instruction" style="text-align:center;">*Tempel foto 3x4 siswa</div>
+      </td>
+    </tr>
+  </table>
+
+  <table>
+    <tr><th colspan="2">IDENTITAS ANAK</th></tr>
+    <tr><td width="35%">Nama Lengkap Anak</td><td>${s.namaSiswa || ''}</td></tr>
+    <tr><td>NIS Lokal</td><td>${s.nisLokal || ''}</td></tr>
+    <tr><td>Tempat dan Tanggal Lahir</td><td>${s.tempatLahir || ''}, ${formatDate(s.tanggalLahir)}</td></tr>
+    <tr><td>Jenis Kelamin</td><td>${s.jenisKelamin || ''}</td></tr>
+    <tr><td>Kelompok / Usia</td><td>${s.kelompokUsia || ''}</td></tr>
+  </table>
+
+  <table>
+    <tr><th colspan="4">KEAKTIFAN SISWA</th></tr>
+    <tr>
+      <td width="25%" class="center" style="background:#e8f5e8"><strong>Ijin</strong></td>
+      <td width="25%" class="center" style="background:#fff3cd"><strong>Sakit</strong></td>
+      <td width="25%" class="center" style="background:#f8d7da"><strong>Alpha</strong></td>
+      <td width="25%" class="center" style="background:#e7f3ff"><strong>Total Masuk</strong></td>
+    </tr>
+    <tr>
+      <td class="center bold" style="font-size:16px;">${s.jumlahIjin || 0}</td>
+      <td class="center bold" style="font-size:16px;">${s.jumlahSakit || 0}</td>
+      <td class="center bold" style="font-size:16px;">${s.jumlahAlpha || 0}</td>
+      <td class="center bold" style="font-size:16px;">${totalHariMasuk}</td>
+    </tr>
+  </table>
+
+  <table>
+    <tr><th colspan="2">DATA ORANG TUA / WALI</th></tr>
+    <tr><td>Nama Ayah</td><td>${s.namaAyah || ''}</td></tr>
+    <tr><td>Pendidikan Ayah</td><td>${s.pendidikanAyah || ''}</td></tr>
+    <tr><td>Pekerjaan Ayah</td><td>${s.pekerjaanAyah || ''}</td></tr>
+    <tr><td>Nama Ibu</td><td>${s.namaIbu || ''}</td></tr>
+    <tr><td>Pendidikan Ibu</td><td>${s.pendidikanIbu || ''}</td></tr>
+    <tr><td>Pekerjaan Ibu</td><td>${s.pekerjaanIbu || ''}</td></tr>
+  </table>
+
+  <!-- EVALUASI PERKEMBANGAN DALAM KOTAK VERTIKAL -->
+  <div class="bold" style="margin-top:20px; margin-bottom:15px; font-size:16px;">EVALUASI PERKEMBANGAN ANAK</div>
+  
+  <div class="eval-box" style="border-color:#3498db;">
+    <div class="eval-header" style="background:#3498db;">AGAMA & BUDI PEKERTI</div>
+    <div class="eval-content">${s.agamaBudipekerti || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+  </div>
+  
+  <div class="eval-box" style="border-color:#e74c3c;">
+    <div class="eval-header" style="background:#e74c3c;">JATI DIRI</div>
+    <div class="eval-content">${s.jatiDiri || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+  </div>
+  
+  <div class="eval-box" style="border-color:#27ae60;">
+    <div class="eval-header" style="background:#27ae60;">LITERASI / MATEMATIKA / SAINS / SENI</div>
+    <div class="eval-content">${s.literasi || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+  </div>
+  
+  <div class="eval-box" style="border-color:#9b59b6;">
+    <div class="eval-header" style="background:#9b59b6;">PROFIL PANCASILA & PROJEK</div>
+    <div class="eval-content">${s.profilPancasila || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+  </div>
+  
+  <div class="eval-box" style="border-color:#f39c12;">
+    <div class="eval-header" style="background:#f39c12;">MUATAN KEAGAMAAN & BTQ</div>
+    <div class="eval-content">${s.keagamaanBTQ || '<em style="color:#666;">Belum ada evaluasi</em>'}</div>
+  </div>
+
+  <!-- INFORMASI PERKEMBANGAN ANAK -->
+  <div class="eval-box" style="border-color:#e67e22;">
+    <div class="eval-header" style="background:#e67e22;">INFORMASI MENGENAI PERKEMBANGAN ANAK</div>
+    <div class="eval-content">${s.informasiPerkembangan || '<em style="color:#666;">Belum ada informasi tambahan mengenai perkembangan anak</em>'}</div>
+  </div>
+
+  <div class="bold" style="margin-top:15px;">Refleksi Orang Tua / Wali</div>
+  <div style="margin-bottom:8px;"><strong>Apa yang sudah berkembang:</strong><br>${s.refleksi1 || '-'}</div>
+  <div style="margin-bottom:8px;"><strong>Apa yang perlu dikembangkan:</strong><br>${s.refleksi2 || '-'}</div>
+  <div style="margin-bottom:8px;"><strong>Langkah-langkah bantuan:</strong><br>${s.refleksi3 || '-'}</div>
+
+  <div style="margin-top:30px; text-align:right; font-size:13px">Pamekasan, ${tanggalCetak}</div>
+
+  <!-- TANDA TANGAN DENGAN TABLE -->
+  <table class="sig-table">
+    <tr>
+      <td style="width:33%;">
+        <div>Orang Tua / Wali</div>
+        <div class="sig-line">${s.penandaOrtu || '________________'}</div>
+      </td>
+      <td style="width:33%;">
+        <div>Guru Kelas</div>
+        <div class="sig-line">${s.penandaGuru || '________________'}</div>
+      </td>
+      <td style="width:33%;">
+        <div>Kepala Madrasah</div>
+        <div class="sig-line">${s.penandaKepala || '________________'}</div>
+      </td>
+    </tr>
+  </table>
+
+  <div style="margin-top: 30px; padding: 10px; background: #f9f9f9; border: 1px dashed #ccc;">
+    <div class="bold">INSTRUKSI:</div>
+    <div class="instruction">1. Tempel logo RA ADIRASA pada kotak logo di header</div>
+    <div class="instruction">2. Tempel foto siswa 3x4 pada kotak foto di header</div>
+    <div class="instruction">3. File siap dicetak atau dibagikan</div>
+  </div>
+</body>
+</html>
+  `;
+  
+  const blob = new Blob(['\ufeff', wordHtml], { 
+    type: 'application/msword' 
+  });
+  
+  saveAs(blob, `rapor_${(s.namaSiswa||'siswa').replace(/\s+/g,'_')}.doc`);
+  showAlert('File Word berhasil dibuat! Silakan tempel logo dan foto manual.', 'success');
+}
+
+/* ===== CETAK LANGSUNG ===== */
+function printDirect(){
+  if(!currentStudentId) { 
+    showAlert('Pilih siswa terlebih dahulu!', 'error'); 
+    return; 
+  }
+  
+  // Pastikan rapor sudah digenerate
+  generateRapor(true);
+  
+  // Tunggu sebentar lalu trigger print
+  setTimeout(() => {
+    window.print();
+  }, 500);
+}
+
+/* ===== OTHER ACTIONS and INIT ===== */
+elementMap.addStudentBtn.addEventListener('click', addNewStudent);
+elementMap.saveAllBtn.addEventListener('click', ()=>{ localStorage.setItem('raporStudents', JSON.stringify(students)); showAlert('Semua data disimpan di localStorage','success'); });
+elementMap.exportAllBtn.addEventListener('click', exportAllStudents);
+elementMap.importAllBtn.addEventListener('click', ()=> E('importJsonFile').click());
+elementMap.clearAllBtn.addEventListener('click', ()=> {
+  if(!confirm('Hapus semua data siswa?')) return;
+  students = {}; currentStudentId = null; localStorage.removeItem('raporStudents'); updateStudentList(); clearForm(); showAlert('Semua data dihapus','success');
+});
+
+elementMap.saveBtn.addEventListener('click', ()=> saveCurrentStudent(true));
+elementMap.generateBtn.addEventListener('click', ()=> generateRapor(true));
+elementMap.printPdfBtn.addEventListener('click', printToPdf);
+elementMap.printWordBtn.addEventListener('click', printToWord);
+elementMap.printDirectBtn.addEventListener('click', printDirect);
+elementMap.duplicateBtn.addEventListener('click', ()=> {
+  if(!currentStudentId) { showAlert('Pilih siswa dulu','error'); return; }
+  duplicateStudent(currentStudentId);
+});
+elementMap.deleteBtn.addEventListener('click', ()=> {
+  if(!currentStudentId) { showAlert('Pilih siswa dulu','error'); return; }
+  if(confirm('Hapus siswa ini?')) deleteStudent(currentStudentId);
+});
+
+/* init */
+loadAllStudents();
+/* set tanggal default hari ini untuk tanggalRapor */
+if(E('tanggalRapor')) {
+  const d = new Date().toISOString().split('T')[0];
+  E('tanggalRapor').value = d;
+}
+</script>
+</body>
+</html>
