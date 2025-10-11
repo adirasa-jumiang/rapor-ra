@@ -1344,5 +1344,16 @@ if(E('tanggalRapor')) {
   E('tanggalRapor').value = d;
 }
 </script>
+  <!-- menu kiri-->
+  <script>
+    function toggleSidebar() {
+      const sidebar = document.getElementById("sidebar");
+      const overlay = document.getElementById("overlay");
+
+      sidebar.classList.toggle("open");
+      overlay.classList.toggle("active");
+    }
+
+  </script>
 </body>
 </html>
