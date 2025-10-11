@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Rapor Digital RA ADIRASA - Multi Siswa (Lengkap)</title>
+<title>Rapor Digital RA ADIRASA - Multi Siswa </title>
 
 <!-- jsPDF untuk export PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -61,6 +61,12 @@
     margin: 10px 0;
     overflow: hidden;
   }
+  .eval-box1 {
+    border: 2px solid;
+    border-radius: 0px;
+    margin: 10px 0;
+    overflow: hidden;
+  }
   .eval-header {
     padding: 12px;
     color: white;
@@ -68,10 +74,37 @@
     text-align: center;
     font-size: 16px;
   }
+  .eval-header1 {
+    padding: 12px;
+    color: black;
+    font-weight: bold;
+    text-align: left;
+    font-size: 16px;
+  }
   .eval-content {
     padding: 15px;
     background: white;
     min-height: 80px;
+  }
+  
+  /* Footer styles */
+  .app-footer {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-top: 2px solid var(--primary);
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+  }
+  
+  /* Settings panel */
+  .settings-panel {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border);
   }
   
   /* Styles untuk print langsung */
@@ -100,8 +133,8 @@
 </head>
 <body>
   <div class="container">
-    <header>
-      <img src="ADIRASA.png" width="10%" hight="10%"><h1>RA ADIRASA — SISTEM RAPOR DIGITAL </h1>
+    <header style="background: linear-gradient(rgb(0, 102, 255), rgb(9, 255, 0));">
+      <h1>RA ADIRASA — SISTEM RAPOR DIGITAL</h1>
       <div style="font-size:13px; opacity:.9">Lengkap: data siswa, data wali, evaluasi, foto & tanda tangan + Keaktifan Siswa</div>
     </header>
 
@@ -122,6 +155,26 @@
 
         <div style="margin-top:12px">
           <input type="file" id="importJsonFile" class="file-hidden" accept=".json">
+        </div>
+
+        <!-- SETTINGS PANEL -->
+        <div class="settings-panel">
+          <h3 style="margin-top:0">Pengaturan Kop Rapor</h3>
+          
+          <label for="namaSekolah">Nama Sekolah</label>
+          <input id="namaSekolah" type="text" placeholder="RA ADIRASA">
+          
+          <label for="alamatSekolah">Alamat Sekolah</label>
+          <textarea id="alamatSekolah" placeholder="Desa Tanjung, Kec. Pademawu, Kabupaten Pamekasan"></textarea>
+          
+          <label for="logoUpload">Upload Logo Sekolah</label>
+          <input id="logoUpload" type="file" accept="image/*">
+          <div style="font-size:11px; color:#666">Logo akan digunakan di header rapor</div>
+          
+          <label for="footerText">Teks Footer</label>
+          <input id="footerText" type="text" placeholder="RA ADIRASA - Terdepan dalam Pendidikan Anak Usia Dini">
+          
+          <button id="saveSettingsBtn" class="small btn-success" style="margin-top:10px; width:100%">Simpan Pengaturan</button>
         </div>
       </div>
 
@@ -155,7 +208,7 @@
             <input id="tahunAjaran" type="text" placeholder="Contoh: 2024/2025">
 
             <label for="semester">Semester *</label>
-            <select id="semester"><option value="">Pilih</option><option value="I (Satu)">I (Satu)</option><option value="II (Dua)">II (Dua)</option></select>
+            <select id="semester"><option value="">Pilih</option><option value="I">I</option><option value="II">II</option></select>
 
             <label for="fotoSiswa">Foto Siswa (opsional)</label>
             <input id="fotoSiswa" type="file" accept="image/*">
@@ -260,6 +313,14 @@
 
       </div>
     </div>
+
+    <!-- FOOTER APPLICATION -->
+    <div class="app-footer no-print">
+      <div id="footerContent">RA ADIRASA - Sistem Rapor Digital | Terdepan dalam Pendidikan Anak Usia Dini</div>
+      <div style="font-size:11px; margin-top:5px; color:#888;">
+        &copy; 2025 RA ADIRASA. Hak Cipta Dilindungi.
+      </div>
+    </div>
   </div>
 
 <script>
@@ -267,6 +328,12 @@
 let students = JSON.parse(localStorage.getItem('raporStudents')) || {};
 let currentStudentId = null;
 let tempPhotoData = ""; // untuk menyimpan base64 sebelum save
+let sekolahSettings = JSON.parse(localStorage.getItem('sekolahSettings')) || {
+  namaSekolah: "RA ADIRASA",
+  alamatSekolah: "Desa Tanjung, Kec. Pademawu, Kabupaten Pamekasan",
+  logo: "",
+  footerText: "RA ADIRASA - Terdepan dalam Pendidikan Anak Usia Dini"
+};
 
 /* ===== ELEMENTS ===== */
 const E = id => document.getElementById(id);
@@ -278,11 +345,19 @@ const elementMap = {
   clearAllBtn: E('clearAllBtn'),
   importJsonFile: E('importJsonFile'),
 
+  // Settings elements
+  namaSekolah: E('namaSekolah'),
+  alamatSekolah: E('alamatSekolah'),
+  logoUpload: E('logoUpload'),
+  footerText: E('footerText'),
+  saveSettingsBtn: E('saveSettingsBtn'),
+
   studentList: E('studentList'),
   studentCount: E('studentCount'),
   currentStudentName: E('currentStudentName'),
   alertMessage: E('alertMessage'),
   raporPreview: E('raporPreview'),
+  footerContent: E('footerContent'),
 
   // form fields
   namaSiswa: E('namaSiswa'),
@@ -347,6 +422,38 @@ function formatDate(idate){
   const opt = { day:'numeric', month:'long', year:'numeric' };
   return d.toLocaleDateString('id-ID', opt);
 }
+
+/* ===== SETTINGS MANAGEMENT ===== */
+function loadSettings() {
+  elementMap.namaSekolah.value = sekolahSettings.namaSekolah;
+  elementMap.alamatSekolah.value = sekolahSettings.alamatSekolah;
+  elementMap.footerText.value = sekolahSettings.footerText;
+  elementMap.footerContent.textContent = sekolahSettings.footerText;
+}
+
+function saveSettings() {
+  sekolahSettings.namaSekolah = elementMap.namaSekolah.value.trim() || "RA ADIRASA";
+  sekolahSettings.alamatSekolah = elementMap.alamatSekolah.value.trim() || "Desa Tanjung, Kec. Pademawu, Kabupaten Pamekasan";
+  sekolahSettings.footerText = elementMap.footerText.value.trim() || "RA ADIRASA - Terdepan dalam Pendidikan Anak Usia Dini";
+  
+  localStorage.setItem('sekolahSettings', JSON.stringify(sekolahSettings));
+  elementMap.footerContent.textContent = sekolahSettings.footerText;
+  showAlert('Pengaturan berhasil disimpan!', 'success');
+}
+
+// Handle logo upload
+elementMap.logoUpload.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    sekolahSettings.logo = ev.target.result;
+    localStorage.setItem('sekolahSettings', JSON.stringify(sekolahSettings));
+    showAlert('Logo berhasil diunggah!', 'success');
+  };
+  reader.readAsDataURL(file);
+});
 
 /* ===== STUDENT LIST UI ===== */
 function updateStudentList(){
@@ -655,7 +762,7 @@ function generateRapor(autoSave=true){
     // still generate but warn user; comment line above to require full fields
   }
 
-  const logo = 'ADIRASA.png'; // let user place logo.png di folder yang sama
+  const logo = sekolahSettings.logo || 'ADIRASA.png'; // gunakan logo dari settings atau default
   const photo = s.foto && s.foto.length>10 ? s.foto : 'foto.png'; // foto default foto.png
 
   const tanggalCetak = s.tanggalRapor ? formatDate(s.tanggalRapor) : formatDate(new Date());
@@ -667,22 +774,24 @@ function generateRapor(autoSave=true){
   // build HTML dengan KOTAK VERTIKAL untuk evaluasi perkembangan
   const html = `
     <div style="padding:10px; color:#222; font-family:Arial, sans-serif;">
+      <!-- HEADER/KOP RAPOR YANG BISA DIKUSTOMISASI -->
       <div class="rapor-header">
         <div style="display:flex; align-items:center; gap:12px;">
-          <img class="logo" src="${logo}" alt="logo">
-          <div style="line-height:1;">
-            <div style="font-weight:700; font-size:18px">LAPORAN PERKEMBANGAN ANAK</div>
-            <div style="font-size:14px">RA ADIRASA - Jl. Wisata Pantai Jumiang, Desa Tanjung, Kec. Pademawu, Kab. Pamekasan</div>
-            <div style="font-size:13px">Tahun Ajaran ${s.tahunAjaran || '-' } &nbsp; Semester ${s.semester || '-'}</div>
+          <img class="logo" src="${logo}" alt="logo" onerror="this.style.display='none'">
+          <div style="line-height:1.2;">
+            <div style="font-weight:700; font-size:18px; color:#2c5aa0">${sekolahSettings.namaSekolah}</div>
+            <div style="font-size:14px; color:#555">${sekolahSettings.alamatSekolah}</div>
+            <div style="font-size:16px; font-weight:700; margin-top:5px;">LAPORAN PERKEMBANGAN ANAK</div>
+            <div style="font-size:13px; color:#666">Tahun Ajaran ${s.tahunAjaran || '-' } &nbsp; Semester ${s.semester || '-'}</div>
           </div>
         </div>
         <div style="text-align:right">
-          <img class="rapor-photo" src="${photo}" alt="Foto Siswa">
+          <img class="rapor-photo" src="${photo}" alt="Foto Siswa" onerror="this.src='foto.png'">
         </div>
       </div>
 
       <table>
-        <tr><th colspan="2" style="background:silver">IDENTITAS ANAK</th></tr>
+        <tr><th colspan="2" style="background:silver;">IDENTITAS ANAK</th></tr>
         <tr><td width="35%">Nama Lengkap Anak</td><td>${s.namaSiswa || ''}</td></tr>
         <tr><td>NIS Lokal</td><td>${s.nisLokal || ''}</td></tr>
         <tr><td>Tempat dan Tanggal Lahir</td><td>${s.tempatLahir || ''}, ${formatDate(s.tanggalLahir)}</td></tr>
@@ -692,7 +801,7 @@ function generateRapor(autoSave=true){
 
       <!-- TAMBAHAN: TABEL KEAKTIFAN SISWA -->
       <table>
-        <tr><th colspan="4" style="background:silver">KEAKTIFAN SISWA</th></tr>
+        <tr><th colspan="4" style="background:silver;">KEAKTIFAN SISWA</th></tr>
         <tr>
           <td width="25%" style="text-align:center; background:#e8f5e8"><strong>Ijin</strong></td>
           <td width="25%" style="text-align:center; background:#fff3cd"><strong>Sakit</strong></td>
@@ -708,7 +817,7 @@ function generateRapor(autoSave=true){
       </table>
 
       <table>
-        <tr><th colspan="2" style="background:silver">DATA ORANG TUA / WALI</th></tr>
+        <tr><th colspan="2" style="background:silver;">DATA ORANG TUA / WALI</th></tr>
         <tr><td>Nama Ayah</td><td>${s.namaAyah || ''}</td></tr>
         <tr><td>Pendidikan Ayah</td><td>${s.pendidikanAyah || ''}</td></tr>
         <tr><td>Pekerjaan Ayah</td><td>${s.pekerjaanAyah || ''}</td></tr>
@@ -718,7 +827,7 @@ function generateRapor(autoSave=true){
       </table>
 
       <!-- EVALUASI PERKEMBANGAN DALAM BENTUK KOTAK VERTIKAL -->
-      <h4 style="margin-top:20px; margin-bottom:15px;">EVALUASI PERKEMBANGAN ANAK</h4>
+      <h4 style="margin-top:20px; margin-bottom:15px; ">EVALUASI PERKEMBANGAN ANAK</h4>
       
       <div class="eval-box" style="border-color:#3498db;">
         <div class="eval-header" style="background:#3498db;">🕌 AGAMA & BUDI PEKERTI</div>
@@ -746,15 +855,17 @@ function generateRapor(autoSave=true){
       </div>
 
       <!-- INFORMASI PERKEMBANGAN ANAK DALAM KOTAK TERPISAH -->
-      <div class="eval-box" style="border-color:#e67e22;">
-        <div class="eval-header" style="background:#e67e22;">💡 INFORMASI MENGENAI PERKEMBANGAN ANAK</div>
+      <div class="eval-box" style="border-color:black;">
+        <div class="eval-header" style="background:pink;">💡 INFORMASI MENGENAI PERKEMBANGAN ANAK</div>
         <div class="eval-content">${s.informasiPerkembangan || '<em style="color:#666;">Belum ada informasi tambahan mengenai perkembangan anak</em>'}</div>
       </div>
 
-      <h4>Refleksi Orang Tua / Wali</h4>
-      <div style="margin-bottom:8px"><strong>Apa yang sudah berkembang:</strong><br>${s.refleksi1 || '-'}</div>
-      <div style="margin-bottom:8px"><strong>Apa yang perlu dikembangkan:</strong><br>${s.refleksi2 || '-'}</div>
-      <div style="margin-bottom:8px"><strong>Langkah-langkah bantuan:</strong><br>${s.refleksi3 || '-'}</div>
+      <div class="eval-box1" style="border-color:black;">
+        <div class="eval-header1" style="background:silver;">REFLEKSI ORANG TUA / WALI </div>
+      <div style="margin-bottom:8px; padding:10px;"><strong>Apa yang sudah berkembang:</strong><br>${s.refleksi1 || '-'}</div>
+      <div style="margin-bottom:8px; padding:10px;"><strong>Apa yang perlu dikembangkan:</strong><br>${s.refleksi2 || '-'}</div>
+      <div style="margin-bottom:8px; padding:10px;"><strong>Langkah-langkah bantuan:</strong><br>${s.refleksi3 || '-'}</div>
+      </div>
 
       <div style="margin-top:18px; text-align:right; font-size:13px">Pamekasan, ${tanggalCetak}</div>
 
@@ -764,13 +875,18 @@ function generateRapor(autoSave=true){
           <div class="sig-line">${s.penandaOrtu || '________________'}</div>
         </div>
         <div class="sig-box">
-          <div>Wali Kelas</div>
+          <div>Guru Kelas</div>
           <div class="sig-line">${s.penandaGuru || '________________'}</div>
         </div>
         <div class="sig-box">
           <div>Kepala Madrasah</div>
           <div class="sig-line">${s.penandaKepala || '________________'}</div>
         </div>
+      </div>
+      
+      <!-- FOOTER RAPOR -->
+      <div style="margin-top:30px; padding:10px; text-align:center; font-size:11px; color:#666; border-top:1px solid #ddd;">
+        ${sekolahSettings.footerText}
       </div>
       
       <!-- Tombol Print untuk cetak langsung -->
@@ -846,7 +962,7 @@ function printToWord(){
   const tanggalCetak = s.tanggalRapor ? formatDate(s.tanggalRapor) : formatDate(new Date());
   const totalHariMasuk = (s.jumlahIjin || 0) + (s.jumlahSakit || 0);
 
-  // Template Word dengan kotak evaluasi vertikal
+  // Template Word dengan kop yang bisa dikustomisasi
   const wordHtml = `
 <html xmlns:o='urn:schemas-microsoft-com:office:office' 
       xmlns:w='urn:schemas-microsoft-com:office:word' 
@@ -934,10 +1050,18 @@ function printToWord(){
       background: white;
       min-height: 60px;
     }
+    .footer-rapor {
+      margin-top: 30px;
+      padding: 10px;
+      text-align: center;
+      font-size: 11px;
+      color: #666;
+      border-top: 1px solid #ddd;
+    }
   </style>
 </head>
 <body>
-  <!-- HEADER DENGAN PLACEHOLDER IMAGES -->
+  <!-- HEADER DENGAN KOP YANG BISA DIKUSTOMISASI -->
   <table border="0" style="border:none; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px;">
     <tr>
       <td style="border:none; vertical-align:top; width:70%;">
@@ -946,14 +1070,15 @@ function printToWord(){
             <td style="border:none; vertical-align:top; width:70px;">
               <div class="logo-placeholder center">
                 <div style="padding-top:25px; font-size:10px;">LOGO</div>
-                <div style="font-size:9px;">RA ADIRASA</div>
+                <div style="font-size:9px;">${sekolahSettings.namaSekolah.split(' ')[0] || 'RA'}</div>
               </div>
             </td>
             <td style="border:none; vertical-align:top;">
-              <div class="bold" style="font-size: 18px;">LAPORAN PERKEMBANGAN ANAK</div>
-              <div style="font-size: 14px;">RA ADIRASA - Desa Tanjung, Kec. Pademawu</div>
+              <div class="bold" style="font-size: 18px; color:#2c5aa0;">${sekolahSettings.namaSekolah}</div>
+              <div style="font-size: 14px; color:#555">${sekolahSettings.alamatSekolah}</div>
+              <div class="bold" style="font-size:16px; margin-top:5px;">LAPORAN PERKEMBANGAN ANAK</div>
               <div style="font-size: 13px;">Tahun Ajaran ${s.tahunAjaran || '-'} &nbsp; Semester ${s.semester || '-'}</div>
-              <div class="instruction">*Tempel logo RA ADIRASA di kotak sebelah kiri</div>
+              <div class="instruction">*Tempel logo ${sekolahSettings.namaSekolah} di kotak sebelah kiri</div>
             </td>
           </tr>
         </table>
@@ -1063,9 +1188,14 @@ function printToWord(){
     </tr>
   </table>
 
+  <!-- FOOTER RAPOR -->
+  <div class="footer-rapor">
+    ${sekolahSettings.footerText}
+  </div>
+
   <div style="margin-top: 30px; padding: 10px; background: #f9f9f9; border: 1px dashed #ccc;">
     <div class="bold">INSTRUKSI:</div>
-    <div class="instruction">1. Tempel logo RA ADIRASA pada kotak logo di header</div>
+    <div class="instruction">1. Tempel logo ${sekolahSettings.namaSekolah} pada kotak logo di header</div>
     <div class="instruction">2. Tempel foto siswa 3x4 pada kotak foto di header</div>
     <div class="instruction">3. File siap dicetak atau dibagikan</div>
   </div>
@@ -1121,8 +1251,12 @@ elementMap.deleteBtn.addEventListener('click', ()=> {
   if(confirm('Hapus siswa ini?')) deleteStudent(currentStudentId);
 });
 
+// Settings event listeners
+elementMap.saveSettingsBtn.addEventListener('click', saveSettings);
+
 /* init */
 loadAllStudents();
+loadSettings();
 /* set tanggal default hari ini untuk tanggalRapor */
 if(E('tanggalRapor')) {
   const d = new Date().toISOString().split('T')[0];
